@@ -11,26 +11,26 @@ const BASE_URL = (() => {
 let currentTab = 'signin';
 
 /* ── 진입점 ── */
-async function initAuthPage() {
+function initAuthPage() {
   const theme = localStorage.getItem('kanban-theme') || 'light';
   document.documentElement.dataset.theme = theme;
 
-  const { data: { session } } = await window._sb.auth.getSession();
-  if (session) {
-    location.href = BASE_URL + 'index.html';
-    return;
-  }
-
+  /* 이벤트 먼저 등록 (세션 확인과 무관하게 버튼이 즉시 동작) */
   document.getElementById('btn-google').addEventListener('click', () => handleOAuth('google'));
   document.getElementById('btn-github').addEventListener('click', () => handleOAuth('github'));
   document.getElementById('auth-form').addEventListener('submit', handleFormSubmit);
-
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
-
   document.getElementById('toggle-tab').addEventListener('click', () => {
     switchTab(currentTab === 'signin' ? 'signup' : 'signin');
+  });
+
+  /* 이미 로그인된 경우에만 보드로 이동 */
+  const { data: { subscription } } = window._sb.auth.onAuthStateChange((event, session) => {
+    if (event !== 'INITIAL_SESSION') return;
+    subscription.unsubscribe();
+    if (session) location.href = BASE_URL + 'index.html';
   });
 }
 

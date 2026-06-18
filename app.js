@@ -50,22 +50,22 @@ function jsToDb(card) {
 }
 
 /* ── 인증 ── */
-async function checkAuth() {
-  try {
-    const { data: { session } } = await window._sb.auth.getSession();
-    if (!session) {
-      location.href = 'auth.html';
-      return false;
-    }
-    currentUser = session.user;
-    const emailEl = document.getElementById('user-email');
-    if (emailEl) emailEl.textContent = currentUser.email;
-    return true;
-  } catch (err) {
-    console.error('checkAuth 오류:', err);
-    location.href = 'auth.html';
-    return false;
-  }
+function checkAuth() {
+  return new Promise((resolve) => {
+    const { data: { subscription } } = window._sb.auth.onAuthStateChange((event, session) => {
+      if (event !== 'INITIAL_SESSION') return;
+      subscription.unsubscribe();
+      if (session) {
+        currentUser = session.user;
+        const emailEl = document.getElementById('user-email');
+        if (emailEl) emailEl.textContent = currentUser.email;
+        resolve(true);
+      } else {
+        location.href = 'auth.html';
+        resolve(false);
+      }
+    });
+  });
 }
 
 async function handleLogout() {
