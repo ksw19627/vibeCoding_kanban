@@ -181,17 +181,16 @@ auth.html 리디렉트
 사용자가 [삭제] 버튼 클릭
     │
     ▼
-confirm 다이얼로그
+카드에 .removing 클래스 추가 → slideOut 애니메이션 실행 (~280ms)
     │
-    ├──[확인]
-    │     │
-    │     ▼
-    │   supabase.from('cards').delete().eq('id', id)
-    │     │
-    │     ▼
-    │   보드 재렌더링 + 뱃지 업데이트
+    ▼
+animationend 이벤트 (또는 350ms 타임아웃) 발생
     │
-    └──[취소] → 변화 없음
+    ▼
+cards 배열에서 제거 → reorderLocal(col) → renderAll()
+    │
+    ▼
+supabase.from('cards').delete().eq('id', id)  ← 비동기
 ```
 
 ---
@@ -245,7 +244,9 @@ DOMContentLoaded → initApp()
     ├── setupBoardEvents()
     ├── setupDragAndDrop()
     ├── setupSearch()
-    └── setupModal()
+    ├── setupPriorityFilter()
+    ├── setupModal()
+    └── setupLogout()
 ```
 
 ---

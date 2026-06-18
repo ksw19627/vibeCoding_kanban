@@ -233,14 +233,18 @@ function dbToJs(row) {
 //   setupLogout() 추가
 ```
 
-### 6.5 유지되는 기존 함수 (변경 없음)
+### 6.5 유지/추가된 기존 함수
 
-`renderAll`, `renderCard`, `updateBadges`, `escapeHtml`, `isOverdue`,
+`renderAll`, `renderCard`, `updateBadges`, `escapeHtml`,
+`isOverdue`, `isDueToday`, `getDueClass`,
 `openModal`, `closeModal`, `saveCard`,
 `setupBoardEvents`, `setupDragAndDrop`,
 `handleDragStart`, `handleDragOver`, `handleDragLeave`, `handleDragEnd`,
-`getDragAfterElement`, `setupSearch`, `filterCards`,
-`setupTheme`, `applyTheme`, `confetti`
+`getDragAfterElement`,
+`setupSearch`, `applyFilter`,       — 검색 + 우선순위 동시 필터
+`setupPriorityFilter`,              — HIGH/MID/LOW 필터 칩
+`setupTheme`, `applyTheme`,
+`confetti`, `deleteCard`            — slideOut 애니메이션 포함
 
 ---
 

@@ -42,7 +42,7 @@
 - [x] **T-16** 컬럼 drag-over, 뱃지, 카드 추가 버튼
 
 ### 2-4. 애니메이션
-- [x] **T-17** `@keyframes popIn`, `pulse`, `fadeSlideUp`
+- [x] **T-17** `@keyframes popIn`, `pulse`, `fadeSlideUp`, `slideOut` (삭제), `placeholderPulse`
 
 ### 2-5. auth 페이지 스타일 (신규)
 - [x] **T-18** `.auth-page`, `.auth-card` — 중앙 정렬 레이아웃
@@ -82,13 +82,14 @@
 - [x] **T-38** Y좌표 기반 플레이스홀더, Done 드롭 시 confetti
 - [x] **T-39** 드롭 후 DB 비동기 업데이트 (UI 먼저 반영)
 
-### 3-6. 검색/테마/컨페티
-- [x] **T-40** `setupSearch()`, `filterCards()`
-- [x] **T-41** `setupTheme()`, `applyTheme()`
+### 3-6. 검색/우선순위 필터/테마/컨페티
+- [x] **T-40** `setupSearch()`, `applyFilter()` — 검색 + 우선순위 필터 동시 적용
+- [x] **T-40b** `setupPriorityFilter()` — HIGH/MID/LOW 필터 칩 클릭 이벤트
+- [x] **T-41** `setupTheme()`, `applyTheme()` — localStorage 테마 저장
 - [x] **T-42** `confetti()` — Canvas RAF 루프, 2초
 
 ### 3-7. 진입점
-- [x] **T-43** `initApp()` — async, checkAuth → loadCardsFromDB → renderAll → 각 setup
+- [x] **T-43** `initApp()` — async, checkAuth → loadCardsFromDB → renderAll → setupBoardEvents, setupDragAndDrop, setupSearch, setupPriorityFilter, setupModal, setupLogout
 
 ---
 
@@ -112,8 +113,12 @@
 - [ ] **T-54** Google OAuth — Google Cloud Console 앱 생성 + Supabase에 Client ID/Secret 입력
 - [ ] **T-55** GitHub OAuth — GitHub OAuth Apps 생성 + Supabase에 Client ID/Secret 입력
 - [ ] **T-56** Supabase → Authentication → URL Configuration
-  - Site URL: `https://ksw19627.github.io/vibeCoding_kanban`
-  - Redirect URLs: `https://ksw19627.github.io/vibeCoding_kanban/index.html`
+  - Site URL: `https://ksw19627.github.io/vibeCoding_kanban/`
+  - Additional Redirect URLs:
+    - `https://ksw19627.github.io/vibeCoding_kanban/index.html`
+    - `http://localhost:5500/index.html`
+    - `http://127.0.0.1:5500/index.html`
+    - `http://localhost:3000/index.html`
 
 ---
 

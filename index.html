@@ -1,74 +1,91 @@
 <!DOCTYPE html>
 <html lang="ko" data-theme="light">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kanban Board</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    window.onerror = function(msg, src, line) {
-      var b = document.getElementById('err-banner');
-      if (b) { b.textContent = '[JS오류] ' + msg + ' — ' + (src||'').split('/').pop() + ':' + line; b.style.display='block'; }
-    };
-    window.addEventListener('unhandledrejection', function(e) {
-      var b = document.getElementById('err-banner');
-      if (b) { b.textContent = '[Promise오류] ' + (e.reason && e.reason.message ? e.reason.message : e.reason); b.style.display='block'; }
-    });
-  </script>
   <script src="supabase-config.js"></script>
 </head>
 <body>
-  <div id="err-banner" style="display:none;position:fixed;top:0;left:0;right:0;background:#de350b;color:#fff;padding:.6rem 1rem;font-family:monospace;font-size:13px;z-index:99999;white-space:pre-wrap;"></div>
-  <header class="header">
+
+  <header class="app-header">
     <div class="header-left">
-      <h1 class="logo">Kanban Board</h1>
+      <span class="logo">&#9646; Kanban</span>
     </div>
-    <div class="toolbar">
+
+    <div class="header-center">
       <div class="search-wrap">
-        <span class="search-icon">🔍</span>
-        <input id="search" type="text" placeholder="카드 검색..." autocomplete="off">
+        <svg class="search-icon" width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M13 13l3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input
+          id="search-input"
+          type="search"
+          placeholder="카드 검색…"
+          autocomplete="off"
+          aria-label="카드 검색"
+        />
       </div>
+    </div>
+
+    <div class="header-right">
       <div class="user-area">
         <span class="user-email" id="user-email"></span>
         <button id="logout-btn" class="btn-logout" title="로그아웃">로그아웃</button>
       </div>
-      <button id="theme-toggle" class="icon-btn" title="테마 전환">🌙</button>
+      <div class="filter-chips" role="group" aria-label="우선순위 필터">
+        <button class="filter-chip active" data-priority="all">전체</button>
+        <button class="filter-chip chip-high" data-priority="high">HIGH</button>
+        <button class="filter-chip chip-mid"  data-priority="mid">MID</button>
+        <button class="filter-chip chip-low"  data-priority="low">LOW</button>
+      </div>
+      <button id="theme-toggle" class="icon-btn" aria-label="테마 전환" title="테마 전환">
+        <span class="theme-icon">&#9790;</span>
+      </button>
     </div>
   </header>
 
   <main class="board" id="board">
-    <section class="column" id="col-todo" data-column="todo">
-      <div class="column-header">
-        <span class="col-dot dot-todo"></span>
-        <h2>TO-DO</h2>
+
+    <!-- TO-DO -->
+    <section class="column" data-col="todo" aria-label="TO-DO">
+      <div class="col-header">
+        <span class="col-dot"></span>
+        <h2 class="col-title">TO-DO</h2>
         <span class="badge" id="badge-todo">0</span>
       </div>
-      <div class="card-list" id="list-todo"></div>
-      <button class="add-card-btn" data-column="todo">+ 카드 추가</button>
+      <div class="card-list" id="list-todo" role="list"></div>
+      <button class="add-card-btn" data-col="todo">+ 카드 추가</button>
     </section>
 
-    <section class="column" id="col-inprogress" data-column="inprogress">
-      <div class="column-header">
-        <span class="col-dot dot-inprogress"></span>
-        <h2>In Progress</h2>
+    <!-- In Progress -->
+    <section class="column" data-col="inprogress" aria-label="In Progress">
+      <div class="col-header">
+        <span class="col-dot"></span>
+        <h2 class="col-title">In Progress</h2>
         <span class="badge" id="badge-inprogress">0</span>
       </div>
-      <div class="card-list" id="list-inprogress"></div>
-      <button class="add-card-btn" data-column="inprogress">+ 카드 추가</button>
+      <div class="card-list" id="list-inprogress" role="list"></div>
+      <button class="add-card-btn" data-col="inprogress">+ 카드 추가</button>
     </section>
 
-    <section class="column" id="col-done" data-column="done">
-      <div class="column-header">
-        <span class="col-dot dot-done"></span>
-        <h2>Done ✓</h2>
+    <!-- Done -->
+    <section class="column" data-col="done" aria-label="Done">
+      <div class="col-header">
+        <span class="col-dot"></span>
+        <h2 class="col-title">Done ✓</h2>
         <span class="badge" id="badge-done">0</span>
       </div>
-      <div class="card-list" id="list-done"></div>
-      <button class="add-card-btn" data-column="done">+ 카드 추가</button>
+      <div class="card-list" id="list-done" role="list"></div>
+      <button class="add-card-btn" data-col="done">+ 카드 추가</button>
     </section>
+
   </main>
 
+  <!-- 카드 추가/편집 모달 -->
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div class="modal-overlay" id="modal-overlay"></div>
     <div class="modal-content">
@@ -76,36 +93,45 @@
         <h3 id="modal-title">카드 추가</h3>
         <button class="modal-close" id="modal-close" aria-label="닫기">&times;</button>
       </div>
+
       <label class="form-label" for="card-title">제목 <span class="required">*</span></label>
-      <input id="card-title" type="text" placeholder="카드 제목을 입력하세요" maxlength="60" autocomplete="off">
-      <p class="field-error hidden" id="title-error">제목을 입력해주세요.</p>
+      <input
+        id="card-title"
+        type="text"
+        maxlength="60"
+        placeholder="카드 제목을 입력하세요"
+        autocomplete="off"
+      />
+      <p class="field-error hidden" id="title-error" role="alert">제목을 입력해주세요.</p>
 
       <label class="form-label" for="card-desc">설명</label>
-      <textarea id="card-desc" placeholder="상세 설명을 입력하세요 (선택)" rows="3"></textarea>
+      <textarea id="card-desc" rows="3" placeholder="상세 설명을 입력하세요 (선택)"></textarea>
 
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="card-due">마감일</label>
-          <input id="card-due" type="date">
+          <input id="card-due" type="date" />
         </div>
         <div class="form-group">
           <label class="form-label" for="card-priority">우선순위</label>
           <select id="card-priority">
-            <option value="high">🔴 High</option>
-            <option value="mid" selected>🟡 Mid</option>
-            <option value="low">🟢 Low</option>
+            <option value="high">HIGH</option>
+            <option value="mid" selected>MID</option>
+            <option value="low">LOW</option>
           </select>
         </div>
       </div>
 
       <div class="modal-actions">
         <button id="cancel-card" class="btn btn-secondary">취소</button>
-        <button id="save-card" class="btn btn-primary">저장</button>
+        <button id="save-card"   class="btn btn-primary">저장</button>
       </div>
     </div>
   </div>
 
-  <canvas id="confetti-canvas"></canvas>
+  <!-- 컨페티 캔버스 -->
+  <canvas id="confetti-canvas" aria-hidden="true"></canvas>
+
   <script src="app.js"></script>
 </body>
 </html>
