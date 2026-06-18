@@ -124,9 +124,9 @@
 
 ## Phase 6. GitHub Pages 배포
 
-- [ ] **T-57** Repository Settings → Pages → Source: main / root 활성화
+- [x] **T-57** Repository Settings → Pages → Source: main / root 활성화
 - [x] **T-58** 전체 파일 commit & push → GitHub Pages 빌드 확인
-- [ ] **T-59** 배포 URL(`https://ksw19627.github.io/vibeCoding_kanban`) 접속 확인
+- [x] **T-59** 배포 URL(`https://ksw19627.github.io/vibeCoding_kanban`) 접속 확인
 
 ---
 

@@ -132,7 +132,11 @@ CREATE POLICY "본인 카드만 접근" ON public.cards
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
--- 5. updated_at 트리거
+-- 5. 역할 권한 부여 (SQL Editor로 생성 시 authenticated에 자동 부여 안 됨)
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.cards TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.cards TO anon;
+
+-- 6. updated_at 트리거
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
