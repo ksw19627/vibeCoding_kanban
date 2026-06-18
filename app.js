@@ -1,7 +1,5 @@
 'use strict';
 
-const supabase = window._sb; // supabase-config.js 에서 생성한 클라이언트
-
 /* ── 상수 ── */
 const THEME_KEY      = 'kanban-theme';
 const COLUMNS        = ['todo', 'inprogress', 'done'];
@@ -54,13 +52,12 @@ function jsToDb(card) {
 /* ── 인증 ── */
 async function checkAuth() {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await window._sb.auth.getSession();
     if (!session) {
       location.href = 'auth.html';
       return false;
     }
     currentUser = session.user;
-    document.body.style.display = ''; // 인증 확인 후 화면 표시
     const emailEl = document.getElementById('user-email');
     if (emailEl) emailEl.textContent = currentUser.email;
     return true;
@@ -72,7 +69,7 @@ async function checkAuth() {
 }
 
 async function handleLogout() {
-  await supabase.auth.signOut();
+  await window._sb.auth.signOut();
   location.href = 'auth.html';
 }
 
@@ -94,7 +91,7 @@ async function loadCardsFromDB() {
 }
 
 async function insertCardToDB(card) {
-  const { error } = await supabase.from('cards').insert(jsToDb(card));
+  const { error } = await window._sb.from('cards').insert(jsToDb(card));
   if (error) console.error('카드 추가 실패:', error.message);
 }
 
@@ -108,12 +105,12 @@ async function updateCardInDB(id, patch) {
     sort_order:  patch.order,
   };
   Object.keys(dbPatch).forEach(k => dbPatch[k] === undefined && delete dbPatch[k]);
-  const { error } = await supabase.from('cards').update(dbPatch).eq('id', id);
+  const { error } = await window._sb.from('cards').update(dbPatch).eq('id', id);
   if (error) console.error('카드 수정 실패:', error.message);
 }
 
 async function deleteCardFromDB(id) {
-  const { error } = await supabase.from('cards').delete().eq('id', id);
+  const { error } = await window._sb.from('cards').delete().eq('id', id);
   if (error) console.error('카드 삭제 실패:', error.message);
 }
 
@@ -133,7 +130,7 @@ async function bulkUpdateOrderInDB(col) {
   }));
 
   if (updates.length === 0) return;
-  const { error } = await supabase.from('cards').upsert(updates);
+  const { error } = await window._sb.from('cards').upsert(updates);
   if (error) console.error('순서 업데이트 실패:', error.message);
 }
 

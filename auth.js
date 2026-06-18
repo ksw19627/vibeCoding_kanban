@@ -1,7 +1,5 @@
 'use strict';
 
-const supabase = window._sb; // supabase-config.js 에서 생성한 클라이언트
-
 const BASE_URL = (() => {
   const { hostname, pathname } = location;
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
@@ -17,7 +15,7 @@ async function initAuthPage() {
   const theme = localStorage.getItem('kanban-theme') || 'light';
   document.documentElement.dataset.theme = theme;
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await window._sb.auth.getSession();
   if (session) {
     location.href = BASE_URL + 'index.html';
     return;
@@ -39,7 +37,7 @@ async function initAuthPage() {
 /* ── OAuth ── */
 async function handleOAuth(provider) {
   clearMessage();
-  const { error } = await supabase.auth.signInWithOAuth({
+  const { error } = await window._sb.auth.signInWithOAuth({
     provider,
     options: { redirectTo: BASE_URL + 'index.html' },
   });
@@ -76,7 +74,7 @@ async function handleFormSubmit(e) {
 }
 
 async function handleEmailSignIn(email, password) {
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await window._sb.auth.signInWithPassword({ email, password });
   if (error) {
     const msg = error.message.includes('Invalid login')
       ? '이메일 또는 패스워드가 올바르지 않습니다.'
@@ -90,7 +88,7 @@ async function handleEmailSignIn(email, password) {
 }
 
 async function handleEmailSignUp(email, password) {
-  const { error } = await supabase.auth.signUp({ email, password });
+  const { error } = await window._sb.auth.signUp({ email, password });
   if (error) {
     const msg = error.message.includes('already registered')
       ? '이미 가입된 이메일입니다. 로그인해주세요.'
