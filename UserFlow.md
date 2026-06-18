@@ -5,36 +5,126 @@
 ## 1. 전체 플로우 개요
 
 ```
-[앱 진입]
+[URL 진입 / 새로고침]
+         │
+         ▼
+   index.html 로드
+         │
+         ▼
+   Supabase 세션 확인
+         │
+    ┌────┴────┐
+    │         │
+[세션 없음]  [세션 있음]
+    │         │
+    ▼         ▼
+auth.html   카드 DB 로드
+  (로그인)    → 보드 렌더링
     │
     ▼
-[데이터 로드]
-localStorage에 저장된 카드가 있으면 렌더링
-없으면 빈 보드 표시
+[인증 성공]
     │
     ▼
-[메인 보드 화면] ◄──────────────────────────────────┐
-    │                                               │
-    ├──[카드 추가]──────────────────────────────────┤
-    ├──[카드 편집]──────────────────────────────────┤
-    ├──[카드 삭제]──────────────────────────────────┤
-    ├──[카드 드래그 이동]────────────────────────────┤
-    ├──[카드 검색/필터]──────────────────────────────┤
-    └──[다크모드 토글]──────────────────────────────┘
+index.html (칸반 보드)
 ```
 
 ---
 
-## 2. 카드 추가 플로우
+## 2. 인증 플로우 (신규)
+
+### 2.1 소셜 로그인 (Google / GitHub)
+
+```
+사용자가 auth.html에서 [Google로 로그인] 또는 [GitHub로 로그인] 클릭
+    │
+    ▼
+supabase.auth.signInWithOAuth({ provider, redirectTo: 'index.html' })
+    │
+    ▼
+브라우저 → OAuth 제공자(Google/GitHub) 로그인 페이지
+    │
+    ▼
+인증 성공 → Supabase 콜백 처리
+    │
+    ▼
+index.html 리디렉트 (세션 쿠키/토큰 자동 저장)
+    │
+    ▼
+칸반 보드 표시 (헤더에 이메일 표시)
+```
+
+### 2.2 이메일 회원가입
+
+```
+사용자가 auth.html에서 [Sign Up] 탭 선택
+    │
+    ▼
+이메일 + 패스워드 입력 후 [회원가입] 클릭
+    │
+    ▼
+supabase.auth.signUp({ email, password })
+    │
+    ├──[실패: 이미 가입된 이메일] → 에러 메시지 표시
+    │
+    └──[성공]
+          │
+          ▼
+        "이메일을 확인해주세요" 안내 메시지 표시
+          │
+          ▼
+        사용자가 이메일 수신함에서 확인 링크 클릭
+          │
+          ▼
+        이메일 인증 완료 → auth.html에서 로그인 가능
+```
+
+### 2.3 이메일 로그인
+
+```
+사용자가 auth.html에서 [Sign In] 탭 선택 (기본)
+    │
+    ▼
+이메일 + 패스워드 입력 후 [로그인] 클릭
+    │
+    ▼
+supabase.auth.signInWithPassword({ email, password })
+    │
+    ├──[실패: 잘못된 이메일/패스워드] → 에러 메시지 표시
+    ├──[실패: 이메일 미인증] → "이메일을 먼저 확인해주세요" 표시
+    │
+    └──[성공]
+          │
+          ▼
+        index.html 리디렉트
+          │
+          ▼
+        칸반 보드 표시
+```
+
+### 2.4 로그아웃
+
+```
+사용자가 헤더 우측 [로그아웃] 버튼 클릭
+    │
+    ▼
+supabase.auth.signOut()
+    │
+    ▼
+세션 삭제
+    │
+    ▼
+auth.html 리디렉트
+```
+
+---
+
+## 3. 카드 추가 플로우 (변경)
 
 ```
 사용자가 [+ 카드 추가] 버튼 클릭
     │
     ▼
 모달 열림 (빈 폼)
- - 제목 입력창에 자동 포커스
- - 마감일 기본값 없음
- - 우선순위 기본값: Mid
     │
     ├──[저장] 클릭
     │     │
@@ -43,10 +133,11 @@ localStorage에 저장된 카드가 있으면 렌더링
     │     └──[제목 있음]
     │           │
     │           ▼
-    │         카드 생성 (UUID 발급)
-    │           │
-    │           ▼
-    │         localStorage 저장
+    │         supabase.from('cards').insert({
+    │           user_id: currentUser.id,
+    │           title, description, due_date,
+    │           priority, col, sort_order
+    │         })
     │           │
     │           ▼
     │         보드 재렌더링 + 팝인 애니메이션
@@ -54,213 +145,129 @@ localStorage에 저장된 카드가 있으면 렌더링
     │           ▼
     │         모달 닫힘
     │
-    └──[취소] 클릭 또는 [오버레이 클릭] 또는 [Esc]
-          │
-          ▼
-        모달 닫힘 (변경사항 폐기)
+    └──[취소] / [Esc] / [오버레이]
+          → 모달 닫힘
 ```
 
 ---
 
-## 3. 카드 편집 플로우
+## 4. 카드 편집 플로우 (변경)
 
 ```
-사용자가 카드 본문 또는 [편집] 버튼 클릭
+사용자가 [편집] 버튼 클릭
     │
     ▼
 모달 열림 (기존 데이터 채워진 폼)
- - 제목, 설명, 마감일, 우선순위 모두 현재값으로 초기화
     │
-    ├──[저장] 클릭
+    ├──[저장]
     │     │
-    │     ├──[제목 비어있음] → 에러 표시
-    │     │
-    │     └──[제목 있음]
+    │     └──[유효성 통과]
     │           │
     │           ▼
-    │         기존 카드 데이터 업데이트
+    │         supabase.from('cards').update({...patch})
+    │           .eq('id', cardId)
     │           │
     │           ▼
-    │         localStorage 저장
-    │           │
-    │           ▼
-    │         보드 재렌더링
-    │           │
-    │           ▼
-    │         모달 닫힘
+    │         보드 재렌더링 → 모달 닫힘
     │
-    └──[취소] / [Esc] / [오버레이]
-          │
-          ▼
-        모달 닫힘 (변경 없음)
+    └──[취소] → 모달 닫힘 (변경 없음)
 ```
 
 ---
 
-## 4. 카드 삭제 플로우
+## 5. 카드 삭제 플로우 (변경)
 
 ```
-사용자가 카드 내 [삭제] 버튼 클릭
+사용자가 [삭제] 버튼 클릭
     │
     ▼
-브라우저 confirm 다이얼로그
-"이 카드를 삭제하시겠습니까?"
+confirm 다이얼로그
     │
     ├──[확인]
     │     │
     │     ▼
-    │   카드 제거
-    │     │
-    │     ▼
-    │   localStorage 저장
-    │     │
-    │     ▼
-    │   보드 재렌더링 (뱃지 업데이트)
-    │
-    └──[취소]
-          │
-          ▼
-        아무 변화 없음
-```
-
----
-
-## 5. 드래그 앤 드롭 플로우
-
-```
-사용자가 카드를 잡고 드래그 시작
-    │
-    ▼
-카드: 3° 회전 + 그림자 강화 + 반투명
-dragId = 카드 ID
-    │
-    ▼
-다른 컬럼 위로 이동
-    │
-    ▼
-대상 컬럼: 점선 테두리 + 펄스 애니메이션
-    │
-    ├──[다른 컬럼에 드롭]
-    │     │
-    │     ▼
-    │   카드의 column 속성 변경
-    │     │
-    │     ▼
-    │   localStorage 저장
+    │   supabase.from('cards').delete().eq('id', id)
     │     │
     │     ▼
     │   보드 재렌더링 + 뱃지 업데이트
-    │     │
-    │     ├──[대상 컬럼 = done]
-    │     │       │
-    │     │       ▼
-    │     │     🎉 컨페티 이펙트 (2초)
-    │     │
-    │     └──[대상 컬럼 ≠ done]
-    │               (일반 이동 완료)
     │
-    ├──[같은 컬럼 내 다른 위치에 드롭]
-    │     │
-    │     ▼
-    │   카드 순서 변경 (Y 좌표 기준)
-    │     │
-    │     ▼
-    │   localStorage 저장 → 재렌더링
-    │
-    └──[드래그 취소 (Esc 또는 영역 이탈)]
-          │
-          ▼
-        원래 위치로 복귀, 효과 제거
+    └──[취소] → 변화 없음
 ```
 
 ---
 
-## 6. 검색/필터 플로우
+## 6. 드래그 앤 드롭 플로우 (변경)
 
 ```
-사용자가 상단 검색창에 텍스트 입력
+카드 드래그 시작 → 드래그 중 → 대상 컬럼에 드롭
     │
     ▼
-input 이벤트 발생 (실시간)
+supabase.from('cards').update({
+  col: targetColumn,
+  sort_order: targetOrder
+}).eq('id', dragId)
     │
     ▼
-모든 카드 순회
-    │
-    ├──[카드 제목 또는 설명에 검색어 포함]
-    │     → 카드 opacity: 1, 정상 표시
-    │
-    └──[포함 안 됨]
-          → 카드 opacity: 0.25, pointer-events: none
+같은 컬럼 내 다른 카드 sort_order 재정렬 (bulk upsert)
     │
     ▼
-검색창 비우기
+보드 재렌더링
     │
-    ▼
-모든 카드 다시 정상 표시
+    └──[대상 컬럼 = done] → 컨페티 이펙트
 ```
 
 ---
 
-## 7. 다크 / 라이트 모드 플로우
-
-```
-사용자가 우측 상단 테마 버튼 클릭
-    │
-    ▼
-현재 테마 확인
-    │
-    ├──[현재 light]
-    │     │
-    │     ▼
-    │   document.documentElement.dataset.theme = 'dark'
-    │   버튼 아이콘 → ☀️
-    │   localStorage 저장
-    │
-    └──[현재 dark]
-          │
-          ▼
-        document.documentElement.dataset.theme = 'light'
-        버튼 아이콘 → 🌙
-        localStorage 저장
-
-페이지 새로고침 시:
-    → initApp에서 localStorage 테마 값 복원
-    → CSS 변수 자동 적용
-```
-
----
-
-## 8. 앱 초기 로드 플로우
+## 7. 앱 초기 로드 플로우 (변경)
 
 ```
 브라우저가 index.html 파싱
     │
     ▼
-style.css 로드 → 초기 스타일 적용
+CDN 로드: Supabase JS → supabase-config.js → style.css → app.js
     │
     ▼
-app.js 로드 → DOMContentLoaded 이벤트 대기
+DOMContentLoaded → initApp()
     │
-    ▼
-initApp() 호출
+    ├── checkAuth()
+    │       → getSession()
+    │       → 세션 없으면 auth.html 리디렉트 (종료)
+    │       → 세션 있으면 currentUser 저장
+    │       → 헤더에 사용자 이메일 표시
     │
-    ├── loadFromStorage()
-    │       → localStorage에서 카드 배열 복원
-    │       → 없으면 빈 배열
+    ├── setupTheme()    (localStorage에서 테마 복원)
     │
-    ├── setupTheme()
-    │       → 저장된 테마 적용
+    ├── loadCardsFromDB()
+    │       → Supabase DB 조회 → cards 배열 구성
     │
     ├── renderAll()
-    │       → 컬럼별 카드 DOM 생성
-    │       → 뱃지 업데이트
     │
+    ├── setupBoardEvents()
     ├── setupDragAndDrop()
-    │       → 이벤트 위임 등록
-    │
     ├── setupSearch()
-    │       → 검색 이벤트 등록
-    │
     └── setupModal()
-            → 모달 저장/취소/닫기 이벤트 등록
+```
+
+---
+
+## 8. auth.html 로드 플로우 (신규)
+
+```
+브라우저가 auth.html 파싱
+    │
+    ▼
+CDN 로드: Supabase JS → supabase-config.js → style.css → auth.js
+    │
+    ▼
+DOMContentLoaded → initAuthPage()
+    │
+    ├── getSession() 확인
+    │       → 이미 로그인 → index.html 리디렉트 (종료)
+    │
+    └── 버튼/폼 이벤트 등록
+          → Google 버튼: handleOAuth('google')
+          → GitHub 버튼: handleOAuth('github')
+          → Sign In 폼: handleEmailSignIn()
+          → Sign Up 폼: handleEmailSignUp()
+          → 탭 전환: toggleAuthTab()
 ```

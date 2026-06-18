@@ -1,148 +1,99 @@
 # Database Design — 칸반 보드
 
-> **현재 구현**: 서버 없이 브라우저 `localStorage`를 단일 저장소로 사용.  
-> **향후 계획**: MySQL 또는 PostgreSQL 연동을 전제로 스키마를 설계하며, localStorage 단계에서도 동일한 데이터 구조를 유지한다.
+> **현재 구현 (v2)**: Supabase PostgreSQL을 단일 데이터 저장소로 사용한다.  
+> 인증은 Supabase Auth (`auth.users`)를 통해 처리하며, 카드 데이터는 `public.cards` 테이블에 user_id를 기반으로 저장한다.  
+> 테마 설정(dark/light)만 `localStorage`에 유지한다.
 
 ---
 
-## 1. 데이터 스토어 로드맵
+## 1. 스토리지 구성
 
-| 단계 | 저장소 | 비고 |
-|------|--------|------|
-| **현재 (v1)** | `localStorage` (JSON) | 서버 불필요, 브라우저 전용 |
-| **v2 계획** | REST API + MySQL / PostgreSQL | 서버 사이드 영속성, 멀티 사용자 |
-| **v3 계획** | 실시간 동기화 (WebSocket) | 협업 기능 |
+| 저장소 | 키 / 테이블 | 내용 |
+|--------|-------------|------|
+| Supabase Auth | `auth.users` | 사용자 계정 (Supabase 자동 관리) |
+| Supabase DB | `public.cards` | 카드 데이터 (user_id 포함) |
+| localStorage | `kanban-theme` | `'light'` 또는 `'dark'` (클라이언트 전용) |
+
+> ※ v1의 `kanban-cards` localStorage 키는 v2에서 완전히 제거됨
 
 ---
 
-## 2. 논리적 데이터 모델
+## 2. 데이터 모델
 
-### 2.1 엔티티 목록
-
-| 엔티티 | 설명 |
-|--------|------|
-| `users` | 사용자 계정 (v2 예정) |
-| `boards` | 칸반 보드 단위 (v2 예정) |
-| `columns` | 보드 내 컬럼 (`todo`, `inprogress`, `done`) |
-| `cards` | 칸반 카드 — 현재 핵심 엔티티 |
-
-### 2.2 ERD (텍스트)
+### 2.1 논리 ERD
 
 ```
-users (v2)
-  │ 1
-  │
-  ▼ N
-boards (v2)
-  │ 1
-  │
-  ▼ N
-columns ──(1)──────────(N)── cards
+auth.users (Supabase 관리)
+  id (UUID, PK)
+  email
+  ...
+    │ 1
+    │
+    ▼ N
+public.cards
+  id (UUID, PK)
+  user_id (UUID, FK → auth.users.id)
+  title
+  description
+  due_date
+  priority
+  col
+  sort_order
+  created_at
+  updated_at
 ```
 
 ---
 
-## 3. Card 스키마 (공통)
+## 3. DDL — Supabase (PostgreSQL)
 
-현재 localStorage와 미래 RDB 모두 동일한 논리 구조를 사용한다.
-
-### 3.1 타입 정의
-
-```ts
-type Priority = 'high' | 'mid' | 'low';
-type Column   = 'todo' | 'inprogress' | 'done';
-
-interface Card {
-  id:        string;   // PK — UUID v4
-  title:     string;   // 1~60자, NOT NULL
-  desc:      string;   // 설명, 빈 문자열 허용
-  due:       string;   // 마감일 ISO 8601 'YYYY-MM-DD', 없으면 ''
-  priority:  Priority; // 우선순위
-  column:    Column;   // 속한 컬럼
-  order:     number;   // 컬럼 내 정렬 순서 (0-based)
-  createdAt: string;   // ISO 8601 datetime
-  updatedAt: string;   // ISO 8601 datetime
-}
-```
-
-### 3.2 필드 상세
-
-| 필드 | 타입 | 제약 | 기본값 |
-|------|------|------|--------|
-| `id` | string (UUID) | PK, 고유, NOT NULL | `crypto.randomUUID()` |
-| `title` | string | 1~60자, NOT NULL | — |
-| `desc` | string | 선택, 빈 문자열 허용 | `''` |
-| `due` | string | `'YYYY-MM-DD'` 또는 `''` | `''` |
-| `priority` | enum | `high`/`mid`/`low`, NOT NULL | `'mid'` |
-| `column` | enum | `todo`/`inprogress`/`done`, NOT NULL | 버튼 클릭 컬럼 |
-| `order` | number (int) | ≥ 0, NOT NULL | 컬럼 내 마지막 + 1 |
-| `createdAt` | string (datetime) | NOT NULL | `new Date().toISOString()` |
-| `updatedAt` | string (datetime) | NOT NULL | `new Date().toISOString()` |
-
----
-
-## 4. RDB 스키마 (MySQL / PostgreSQL)
-
-향후 백엔드 연동 시 아래 DDL을 기준으로 테이블을 생성한다.
-
-### 4.1 MySQL DDL
+### 3.1 ENUM 타입 정의
 
 ```sql
--- 데이터베이스
-CREATE DATABASE IF NOT EXISTS kanban
-  DEFAULT CHARACTER SET utf8mb4
-  DEFAULT COLLATE utf8mb4_unicode_ci;
-
-USE kanban;
-
--- cards 테이블
-CREATE TABLE cards (
-  id          CHAR(36)        NOT NULL,                  -- UUID v4
-  title       VARCHAR(60)     NOT NULL,
-  `desc`      TEXT            NOT NULL DEFAULT '',
-  due         DATE            NULL,                       -- NULL = 마감일 없음
-  priority    ENUM('high','mid','low') NOT NULL DEFAULT 'mid',
-  col         ENUM('todo','inprogress','done') NOT NULL DEFAULT 'todo',
-  `order`     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP
-                              ON UPDATE CURRENT_TIMESTAMP,
-
-  PRIMARY KEY (id),
-  INDEX idx_col_order (col, `order`)   -- 컬럼별 정렬 조회 최적화
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-```
-
-> **컬럼명 주의**: `desc`, `order`, `column`은 SQL 예약어이므로 백틱 또는 별칭 사용.  
-> 실제 컬럼명은 `col`로 정의하고 애플리케이션 레이어에서 매핑한다.
-
----
-
-### 4.2 PostgreSQL DDL
-
-```sql
--- ENUM 타입 정의
 CREATE TYPE priority_enum AS ENUM ('high', 'mid', 'low');
 CREATE TYPE column_enum   AS ENUM ('todo', 'inprogress', 'done');
+```
 
--- cards 테이블
-CREATE TABLE cards (
-  id          UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
-  title       VARCHAR(60)     NOT NULL,
-  description TEXT            NOT NULL DEFAULT '',
-  due_date    DATE            NULL,
-  priority    priority_enum   NOT NULL DEFAULT 'mid',
-  col         column_enum     NOT NULL DEFAULT 'todo',
-  sort_order  SMALLINT        NOT NULL DEFAULT 0,
-  created_at  TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+### 3.2 cards 테이블
+
+```sql
+CREATE TABLE public.cards (
+  id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID         NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title       VARCHAR(60)  NOT NULL,
+  description TEXT         NOT NULL DEFAULT '',
+  due_date    DATE         NULL,                            -- NULL = 마감일 없음
+  priority    priority_enum NOT NULL DEFAULT 'mid',
+  col         column_enum   NOT NULL DEFAULT 'todo',
+  sort_order  SMALLINT     NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+```
 
--- 컬럼별 정렬 조회 인덱스
-CREATE INDEX idx_cards_col_order ON cards (col, sort_order);
+### 3.3 인덱스
 
--- updated_at 자동 갱신 트리거
-CREATE OR REPLACE FUNCTION set_updated_at()
+```sql
+-- 사용자 + 컬럼별 정렬 조회 최적화
+CREATE INDEX idx_cards_user_col ON public.cards (user_id, col, sort_order);
+```
+
+### 3.4 Row Level Security (RLS)
+
+```sql
+-- RLS 활성화
+ALTER TABLE public.cards ENABLE ROW LEVEL SECURITY;
+
+-- 정책: 본인 카드만 SELECT / INSERT / UPDATE / DELETE 가능
+CREATE POLICY "본인 카드만 접근" ON public.cards
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+```
+
+### 3.5 updated_at 자동 갱신 트리거
+
+```sql
+CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
@@ -151,266 +102,218 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_cards_updated_at
-  BEFORE UPDATE ON cards
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  BEFORE UPDATE ON public.cards
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 ```
 
 ---
 
-### 4.3 v2 확장 스키마 (users, boards, columns)
+## 4. Supabase 설정 (SQL Editor에서 실행)
+
+위 3.1 ~ 3.5를 순서대로 Supabase SQL Editor에 붙여넣고 실행한다.
 
 ```sql
--- 사용자 (v2)
-CREATE TABLE users (
-  id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-  email       VARCHAR(255) NOT NULL UNIQUE,
-  name        VARCHAR(100) NOT NULL,
-  created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
+-- 전체 실행 순서
+-- 1. ENUM 타입 생성
+CREATE TYPE priority_enum AS ENUM ('high', 'mid', 'low');
+CREATE TYPE column_enum   AS ENUM ('todo', 'inprogress', 'done');
 
--- 보드 (v2)
-CREATE TABLE boards (
+-- 2. 테이블 생성
+CREATE TABLE public.cards (
   id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_id    UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  title       VARCHAR(100) NOT NULL,
+  user_id     UUID         NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title       VARCHAR(60)  NOT NULL,
+  description TEXT         NOT NULL DEFAULT '',
+  due_date    DATE         NULL,
+  priority    priority_enum NOT NULL DEFAULT 'mid',
+  col         column_enum   NOT NULL DEFAULT 'todo',
+  sort_order  SMALLINT     NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
--- 컬럼 (v2 — 현재 고정 3개, 향후 커스터마이징 가능)
-CREATE TABLE columns (
-  id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-  board_id    UUID         NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
-  title       VARCHAR(60)  NOT NULL,
-  sort_order  SMALLINT     NOT NULL DEFAULT 0,
-  color       CHAR(7)      NOT NULL DEFAULT '#ebecf0',  -- hex
-  created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
+-- 3. 인덱스
+CREATE INDEX idx_cards_user_col ON public.cards (user_id, col, sort_order);
 
--- cards v2 — column_id FK 추가
-ALTER TABLE cards
-  ADD COLUMN board_id  UUID REFERENCES boards(id)  ON DELETE CASCADE,
-  ADD COLUMN col_id    UUID REFERENCES columns(id) ON DELETE CASCADE;
+-- 4. RLS
+ALTER TABLE public.cards ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "본인 카드만 접근" ON public.cards
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- 5. 트리거
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_cards_updated_at
+  BEFORE UPDATE ON public.cards
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 ```
 
 ---
 
-## 5. localStorage 저장 형태 (현재 v1)
+## 5. Card 스키마 (JS ↔ DB 매핑)
 
-### 5.1 kanban-cards
+### 5.1 JS 타입 정의
 
-```json
-[
-  {
-    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "title": "디자인 시안 작성",
-    "desc": "메인 랜딩 페이지 UI 시안 3가지 제출",
-    "due": "2026-06-20",
-    "priority": "high",
-    "column": "todo",
-    "order": 0,
-    "createdAt": "2026-06-18T09:00:00.000Z",
-    "updatedAt": "2026-06-18T09:00:00.000Z"
-  }
-]
+```ts
+type Priority = 'high' | 'mid' | 'low';
+type Column   = 'todo' | 'inprogress' | 'done';
+
+interface Card {
+  id:        string;    // UUID
+  title:     string;    // 1~60자
+  desc:      string;    // 설명 (빈 문자열 허용)
+  due:       string;    // 'YYYY-MM-DD' 또는 ''
+  priority:  Priority;
+  column:    Column;    // JS에서는 'column' 사용 (SQL 예약어 충돌 피하기 위해 DB는 'col')
+  order:     number;    // 컬럼 내 정렬 순서
+  createdAt: string;    // ISO 8601
+  updatedAt: string;    // ISO 8601
+}
 ```
 
-### 5.2 kanban-theme
+### 5.2 필드명 변환
 
+| JS (camelCase) | DB (snake_case) | 비고 |
+|----------------|-----------------|------|
+| `id` | `id` | — |
+| — | `user_id` | currentUser.id 자동 삽입 |
+| `title` | `title` | — |
+| `desc` | `description` | `desc`는 SQL 예약어 |
+| `due` | `due_date` | `''` → `null` 변환 필요 |
+| `priority` | `priority` | — |
+| `column` | `col` | `column`은 SQL 예약어 |
+| `order` | `sort_order` | `order`는 SQL 예약어 |
+| `createdAt` | `created_at` | — |
+| `updatedAt` | `updated_at` | DB 트리거가 자동 갱신 |
+
+---
+
+## 6. CRUD 연산 (Supabase JS SDK)
+
+### 6.1 조회 (Read)
+
+```js
+const { data, error } = await supabase
+  .from('cards')
+  .select('*')
+  .eq('user_id', currentUser.id)
+  .order('col')
+  .order('sort_order');
+
+const cards = data.map(dbToJs);
 ```
-"dark"
+
+### 6.2 생성 (Create)
+
+```js
+await supabase.from('cards').insert({
+  user_id:     currentUser.id,
+  title:       card.title,
+  description: card.desc,
+  due_date:    card.due || null,
+  priority:    card.priority,
+  col:         card.column,
+  sort_order:  card.order,
+});
+```
+
+### 6.3 수정 (Update)
+
+```js
+await supabase.from('cards')
+  .update({
+    title:       patch.title,
+    description: patch.desc,
+    due_date:    patch.due || null,
+    priority:    patch.priority,
+    col:         patch.column,
+    sort_order:  patch.order,
+  })
+  .eq('id', id);
+// updated_at은 트리거가 자동 갱신
+```
+
+### 6.4 이동 (Move — 드래그앤드롭)
+
+```js
+// 이동 카드 update
+await supabase.from('cards')
+  .update({ col: targetColumn, sort_order: targetOrder })
+  .eq('id', dragId);
+
+// 같은 컬럼 내 나머지 카드 sort_order 일괄 재정렬
+const updates = colCards.map((c, i) => ({ id: c.id, sort_order: i }));
+await supabase.from('cards').upsert(updates);
+```
+
+### 6.5 삭제 (Delete)
+
+```js
+await supabase.from('cards').delete().eq('id', id);
 ```
 
 ---
 
-## 6. CRUD 연산 명세
+## 7. 인증 (Supabase Auth)
 
-### 6.1 카드 생성 (Create)
+Supabase Auth가 `auth.users` 테이블을 자동 관리한다. 앱에서는 세션만 사용한다.
 
 ```js
-function createCard(data, column) {
-  const card = {
-    id:        crypto.randomUUID(),
-    title:     data.title.trim(),
-    desc:      data.desc.trim(),
-    due:       data.due,
-    priority:  data.priority,
-    column,
-    order:     cards.filter(c => c.column === column).length,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  cards.push(card);
-  saveToStorage(cards);
-  return card;
-}
-```
+// 세션 확인
+const { data: { session } } = await supabase.auth.getSession();
+const currentUser = session?.user;
 
-**RDB 대응 SQL:**
-```sql
-INSERT INTO cards (id, title, description, due_date, priority, col, sort_order)
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+// OAuth 로그인
+await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
+await supabase.auth.signInWithOAuth({ provider: 'github', options: { redirectTo } });
+
+// 이메일 로그인/가입
+await supabase.auth.signInWithPassword({ email, password });
+await supabase.auth.signUp({ email, password });
+
+// 로그아웃
+await supabase.auth.signOut();
 ```
 
 ---
 
-### 6.2 카드 조회 (Read)
+## 8. 마이그레이션 전략
+
+### v1 (localStorage) → v2 (Supabase) 이행 안내
+
+v1에서 localStorage에 저장된 카드 데이터는 자동으로 마이그레이션되지 않는다.
+필요 시 아래 절차를 수동으로 실행:
 
 ```js
-// 컬럼별 조회 (order 오름차순)
-function getCardsByColumn(column) {
-  return cards
-    .filter(c => c.column === column)
-    .sort((a, b) => a.order - b.order);
-}
-```
+async function migrateLocalStorageToSupabase() {
+  const raw = localStorage.getItem('kanban-cards');
+  if (!raw) return;
+  const localCards = JSON.parse(raw);
 
-**RDB 대응 SQL:**
-```sql
-SELECT * FROM cards WHERE col = $1 ORDER BY sort_order ASC;
-```
-
----
-
-### 6.3 카드 수정 (Update)
-
-```js
-function updateCard(id, patch) {
-  const idx = cards.findIndex(c => c.id === id);
-  if (idx === -1) return;
-  cards[idx] = { ...cards[idx], ...patch, updatedAt: new Date().toISOString() };
-  saveToStorage(cards);
-}
-```
-
-**RDB 대응 SQL:**
-```sql
-UPDATE cards
-SET title=$2, description=$3, due_date=$4, priority=$5, updated_at=NOW()
-WHERE id = $1;
-```
-
----
-
-### 6.4 카드 이동 (Move)
-
-```js
-function moveCard(id, targetColumn, targetOrder) {
-  updateCard(id, { column: targetColumn, order: targetOrder });
-  reorderColumn(targetColumn);
-}
-```
-
-**RDB 대응 SQL (트랜잭션):**
-```sql
-BEGIN;
-UPDATE cards SET col = $2, sort_order = $3, updated_at = NOW() WHERE id = $1;
--- 같은 컬럼 내 순서 재정렬
-UPDATE cards
-SET sort_order = sort_order + 1
-WHERE col = $2 AND sort_order >= $3 AND id != $1;
-COMMIT;
-```
-
----
-
-### 6.5 카드 삭제 (Delete)
-
-```js
-function deleteCard(id) {
-  const card = getCardById(id);
-  cards = cards.filter(c => c.id !== id);
-  reorderColumn(card.column);
-  saveToStorage(cards);
-}
-```
-
-**RDB 대응 SQL:**
-```sql
-DELETE FROM cards WHERE id = $1;
-```
-
----
-
-## 7. 스토리지 입출력 (v1)
-
-```js
-const STORAGE_KEY = 'kanban-cards';
-const THEME_KEY   = 'kanban-theme';
-
-function loadFromStorage() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? migrateIfNeeded(JSON.parse(raw)) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveToStorage(cards) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
-}
-```
-
----
-
-## 8. 데이터 마이그레이션 전략
-
-### 8.1 localStorage → RDB 마이그레이션
-
-v1(localStorage)에서 v2(RDB)로 전환 시:
-
-```js
-async function migrateToServer(apiBaseUrl) {
-  const cards = loadFromStorage();
-  // 서버에 일괄 전송
-  await fetch(`${apiBaseUrl}/cards/import`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(cards),
-  });
-  // 마이그레이션 완료 플래그 저장
-  localStorage.setItem('kanban-migrated', 'true');
-}
-```
-
-### 8.2 스키마 버전 호환성
-
-구버전 localStorage 데이터 보완 (신규 필드 없을 때):
-
-```js
-function migrateIfNeeded(cards) {
-  return cards.map(card => ({
-    order:     card.order     ?? 0,
-    createdAt: card.createdAt ?? new Date().toISOString(),
-    updatedAt: card.updatedAt ?? new Date().toISOString(),
-    ...card,
+  const dbCards = localCards.map(c => ({
+    user_id:     currentUser.id,
+    title:       c.title,
+    description: c.desc || '',
+    due_date:    c.due || null,
+    priority:    c.priority || 'mid',
+    col:         c.column || 'todo',
+    sort_order:  c.order || 0,
   }));
+
+  await supabase.from('cards').insert(dbCards);
+  localStorage.removeItem('kanban-cards');
 }
 ```
 
 ---
 
-## 9. 인덱스 전략 (RDB)
+## 9. 인덱스 전략
 
-| 인덱스 | 대상 컬럼 | 목적 |
-|--------|-----------|------|
-| PRIMARY KEY | `id` | 단건 조회/수정/삭제 |
-| `idx_cards_col_order` | `(col, sort_order)` | 컬럼별 정렬 조회 |
-| `idx_cards_board` (v2) | `board_id` | 보드별 전체 카드 조회 |
-
----
-
-## 10. 네이밍 컨벤션 매핑
-
-JavaScript camelCase ↔ DB snake_case 변환:
-
-| JS (camelCase) | DB (snake_case) |
-|----------------|-----------------|
-| `id` | `id` |
-| `desc` | `description` |
-| `due` | `due_date` |
-| `column` | `col` |
-| `order` | `sort_order` |
-| `createdAt` | `created_at` |
-| `updatedAt` | `updated_at` |
+| 인덱스 | 컬럼 | 목적 |
+|--------|------|------|
+| PK | `id` | 단건 조회/수정/삭제 |
+| `idx_cards_user_col` | `(user_id, col, sort_order)` | 사용자+컬럼별 정렬 조회 |
