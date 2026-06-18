@@ -53,15 +53,22 @@ function jsToDb(card) {
 
 /* ── 인증 ── */
 async function checkAuth() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      location.href = 'auth.html';
+      return false;
+    }
+    currentUser = session.user;
+    document.body.style.display = ''; // 인증 확인 후 화면 표시
+    const emailEl = document.getElementById('user-email');
+    if (emailEl) emailEl.textContent = currentUser.email;
+    return true;
+  } catch (err) {
+    console.error('checkAuth 오류:', err);
     location.href = 'auth.html';
     return false;
   }
-  currentUser = session.user;
-  const emailEl = document.getElementById('user-email');
-  if (emailEl) emailEl.textContent = currentUser.email;
-  return true;
 }
 
 async function handleLogout() {
@@ -553,8 +560,7 @@ async function initApp() {
     setupLogout();
   } catch (err) {
     console.error('initApp 오류:', err);
-    const b = document.getElementById('err-banner');
-    if (b) { b.textContent = '[초기화 오류] ' + err.message; b.style.display = 'block'; }
+    location.href = 'auth.html';
   }
 }
 
