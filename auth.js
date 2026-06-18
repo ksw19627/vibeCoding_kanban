@@ -1,5 +1,7 @@
 'use strict';
 
+const supabase = window._sb; // supabase-config.js 에서 생성한 클라이언트
+
 const BASE_URL = (() => {
   const { hostname, pathname } = location;
   if (hostname === 'localhost' || hostname === '127.0.0.1') {

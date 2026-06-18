@@ -1,5 +1,7 @@
 'use strict';
 
+const supabase = window._sb; // supabase-config.js 에서 생성한 클라이언트
+
 /* ── 상수 ── */
 const THEME_KEY      = 'kanban-theme';
 const COLUMNS        = ['todo', 'inprogress', 'done'];

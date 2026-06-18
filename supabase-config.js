@@ -4,4 +4,5 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 if (!window.supabase || typeof window.supabase.createClient !== 'function') {
   throw new Error('Supabase CDN 로드 실패 — window.supabase 없음');
 }
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+/* window._sb 에 클라이언트 저장 (window.supabase는 라이브러리 네임스페이스이므로 이름 충돌 방지) */
+window._sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
