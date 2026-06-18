@@ -537,17 +537,23 @@ function confetti() {
 
 /* ── 진입점 ── */
 async function initApp() {
-  const authed = await checkAuth();
-  if (!authed) return;
+  try {
+    const authed = await checkAuth();
+    if (!authed) return;
 
-  setupTheme();
-  cards = await loadCardsFromDB();
-  renderAll();
-  setupBoardEvents();
-  setupDragAndDrop();
-  setupSearch();
-  setupModal();
-  setupLogout();
+    setupTheme();
+    cards = await loadCardsFromDB();
+    renderAll();
+    setupBoardEvents();
+    setupDragAndDrop();
+    setupSearch();
+    setupModal();
+    setupLogout();
+  } catch (err) {
+    console.error('initApp 오류:', err);
+    const b = document.getElementById('err-banner');
+    if (b) { b.textContent = '[초기화 오류] ' + err.message; b.style.display = 'block'; }
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initApp);

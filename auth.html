@@ -5,11 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>로그인 — Kanban Board</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script>
+    window.onerror = function(msg, src, line) {
+      var b = document.getElementById('err-banner');
+      if (b) { b.textContent = '[JS오류] ' + msg + ' — ' + (src||'').split('/').pop() + ':' + line; b.style.display='block'; }
+    };
+  </script>
   <script src="supabase-config.js"></script>
 </head>
 <body class="auth-page">
 
+  <div id="err-banner" style="display:none;position:fixed;top:0;left:0;right:0;background:#de350b;color:#fff;padding:.6rem 1rem;font-family:monospace;font-size:13px;z-index:99999;white-space:pre-wrap;"></div>
   <div class="auth-card">
     <div class="auth-logo">
       <h1>Kanban Board</h1>
