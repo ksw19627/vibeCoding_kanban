@@ -110,9 +110,9 @@
 
 - [x] **T-52** Supabase 프로젝트 생성 + URL/Key 확인
 - [x] **T-53** SQL 실행 — cards 테이블, ENUM, 인덱스, RLS, 트리거
-- [ ] **T-54** Google OAuth — Google Cloud Console 앱 생성 + Supabase에 Client ID/Secret 입력
-- [ ] **T-55** GitHub OAuth — GitHub OAuth Apps 생성 + Supabase에 Client ID/Secret 입력
-- [ ] **T-56** Supabase → Authentication → URL Configuration
+- [x] **T-54** Google OAuth — Google Cloud Console 앱 생성 + Supabase에 Client ID/Secret 입력
+- [x] **T-55** GitHub OAuth — GitHub OAuth Apps 생성 + Supabase에 Client ID/Secret 입력
+- [x] **T-56** Supabase → Authentication → URL Configuration
   - Site URL: `https://ksw19627.github.io/vibeCoding_kanban/`
   - Additional Redirect URLs:
     - `https://ksw19627.github.io/vibeCoding_kanban/index.html`
@@ -125,7 +125,7 @@
 ## Phase 6. GitHub Pages 배포
 
 - [ ] **T-57** Repository Settings → Pages → Source: main / root 활성화
-- [ ] **T-58** 전체 파일 commit & push → GitHub Pages 빌드 확인
+- [x] **T-58** 전체 파일 commit & push → GitHub Pages 빌드 확인
 - [ ] **T-59** 배포 URL(`https://ksw19627.github.io/vibeCoding_kanban`) 접속 확인
 
 ---
