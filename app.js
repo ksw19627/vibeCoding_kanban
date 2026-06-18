@@ -349,12 +349,15 @@ function saveCard() {
     priority: inputPrio.value,
   };
 
+  // closeModal() 이 editingColumn/editingCardId를 null로 초기화하기 전에 저장
+  const column = editingColumn;
+  const cardId = editingCardId;
   closeModal();
 
-  if (editingCardId) {
-    updateCard(editingCardId, data);
+  if (cardId) {
+    updateCard(cardId, data);
   } else {
-    createCard(data, editingColumn);
+    createCard(data, column);
   }
 }
 
